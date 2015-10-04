@@ -51,9 +51,11 @@ function RedisClient(stream, options) {
     this.should_buffer = false;
     this.command_queue_high_water = options.command_queue_high_water || 1000;
     this.command_queue_low_water = options.command_queue_low_water || 0;
+    this.max_in_flight = +options.max_in_flight || 0; // 0 = disabled
     this.max_attempts = +options.max_attempts || 0;
     this.command_queue = new Queue(); // holds sent commands to de-pipeline them
     this.offline_queue = new Queue(); // holds commands issued but not able to be sent
+    this.pending_queue = new Queue(); // holds commands issued but not sent yet due to max_in_flight being exceeded
     this.commands_sent = 0;
     this.connect_timeout = +options.connect_timeout || 86400000; // 24 * 60 * 60 * 1000 ms
     this.enable_offline_queue = true;
@@ -540,10 +542,12 @@ RedisClient.prototype.return_error = function (err) {
     } else {
         this.emit('error', err);
     }
+
+    this.send_pending_command();
 };
 
 RedisClient.prototype.return_reply = function (reply) {
-    var command_obj, len, type, timestamp, argindex, args, queue_len;
+    var command_obj, len, type, timestamp, argindex, args, queue_len, _this = this;
 
     // If the "reply" here is actually a message received asynchronously due to a
     // pubsub subscription, don't pop the command queue as we'll only be consuming
@@ -556,6 +560,9 @@ RedisClient.prototype.return_reply = function (reply) {
         debug("Received pubsub message");
     } else {
         command_obj = this.command_queue.shift();
+        setImmediate(function() {
+            _this.send_pending_command();
+        });
     }
 
     queue_len = this.command_queue.length;
@@ -716,6 +723,24 @@ RedisClient.prototype.send_command = function (command, args, callback) {
         this.emit("error", err);
         return;
     }
+
+    if ((this.max_in_flight > 0 && this.command_queue.length >= this.max_in_flight) || this.pending_queue.length > 0) {
+        this.pending_queue.push(command_obj);
+        return;
+    } else {
+        return this.send_command_post_in_flight_check(command_obj);
+    }
+};
+
+RedisClient.prototype.send_command_post_in_flight_check = function (command_obj) {
+    var buffered_writes = 0,
+        command = command_obj.command,
+        args = command_obj.args,
+        buffer_args = command_obj.buffer_args,
+        command_str = "",
+        stream = this.stream,
+        arg, i, elem_count;
+
     this.command_queue.push(command_obj);
     this.commands_sent += 1;
 
@@ -767,6 +792,15 @@ RedisClient.prototype.send_command = function (command, args, callback) {
         this.should_buffer = true;
     }
     return !this.should_buffer;
+};
+
+RedisClient.prototype.send_pending_command = function () {
+    var command_obj;
+    debug("send_pending_command");
+    if (this.command_queue.length < this.max_in_flight) {
+        command_obj = this.pending_queue.shift();
+        return command_obj && this.send_command_post_in_flight_check(command_obj);
+    }
 };
 
 RedisClient.prototype.pub_sub_command = function (command_obj) {
