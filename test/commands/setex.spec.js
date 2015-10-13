@@ -14,7 +14,7 @@ describe("The 'setex' method", function () {
 
             beforeEach(function (done) {
                 client = redis.createClient.apply(redis.createClient, args);
-                client.once("connect", function () {
+                client.once("ready", function () {
                     client.flushdb(done);
                 });
             });
@@ -29,7 +29,8 @@ describe("The 'setex' method", function () {
             });
 
             it('returns an error if no value is provided', function (done) {
-                client.SETEX(["setex key", "100", undefined], helper.isError(done));
+                var buffering = client.SETEX(["setex key", "100", undefined], helper.isError(done));
+                assert(typeof buffering === 'boolean');
             });
 
             afterEach(function () {

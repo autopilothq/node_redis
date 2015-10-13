@@ -1,6 +1,6 @@
 {
   "name": "redis",
-  "version": "2.1.1-autopilot",
+  "version": "2.2.2-autopilot",
   "description": "Redis client library",
   "keywords": [
     "database",
@@ -16,6 +16,9 @@
     "test": "nyc ./node_modules/.bin/_mocha ./test/*.js ./test/commands/*.js ./test/parser/*.js --timeout=8000",
     "pretest": "optional-dev-dependency hiredis",
     "posttest": "jshint ."
+  },
+  "dependencies": {
+    "double-ended-queue": "^2.1.0-0"
   },
   "devDependencies": {
     "coveralls": "^2.11.2",
