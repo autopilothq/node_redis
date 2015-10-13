@@ -1,6 +1,6 @@
 {
   "name": "redis",
-  "version": "2.2.2-autopilot",
+  "version": "2.2.2-autopilot2",
   "description": "Redis client library",
   "keywords": [
     "database",
