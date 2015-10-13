@@ -529,7 +529,7 @@ RedisClient.prototype.connection_gone = function (why) {
 };
 
 RedisClient.prototype.return_error = function (err) {
-    var command_obj = this.command_queue.shift(), queue_len = this.command_queue.length;
+    var command_obj = this.command_queue.shift(), queue_len = this.command_queue._length;
     // send_command might have been used wrong => catch those cases too
     if (command_obj.command && command_obj.command.toUpperCase) {
         err.command = command_obj.command.toUpperCase();
@@ -586,7 +586,7 @@ RedisClient.prototype.return_reply = function (reply) {
         });
     }
 
-    queue_len = this.command_queue.length;
+    queue_len = this.command_queue._length;
 
     this.emit_drain_idle(queue_len);
 
@@ -745,7 +745,7 @@ RedisClient.prototype.send_command = function (command, args, callback) {
         return true;
     }
 
-    if ((this.max_in_flight > 0 && this.command_queue.length >= this.max_in_flight) || this.pending_queue.length > 0) {
+    if ((this.max_in_flight > 0 && this.command_queue._length >= this.max_in_flight) || this.pending_queue._length > 0) {
         this.pending_queue.push(command_obj);
         return;
     } else {
@@ -809,7 +809,7 @@ RedisClient.prototype.send_command_post_in_flight_check = function (command_obj)
             }
         }
     }
-    if (buffered_writes !== 0 || this.command_queue.length >= this.command_queue_high_water) {
+    if (buffered_writes !== 0 || this.command_queue._length >= this.command_queue_high_water) {
         debug('send_command buffered_writes: ' + buffered_writes, ' should_buffer: ' + this.should_buffer);
         this.should_buffer = true;
     }
@@ -819,7 +819,7 @@ RedisClient.prototype.send_command_post_in_flight_check = function (command_obj)
 RedisClient.prototype.send_pending_command = function () {
     var command_obj;
     debug("send_pending_command");
-    if (this.command_queue.length < this.max_in_flight) {
+    if (this.command_queue._length < this.max_in_flight) {
         command_obj = this.pending_queue.shift();
         return command_obj && this.send_command_post_in_flight_check(command_obj);
     }
@@ -1099,7 +1099,7 @@ Multi.prototype.send_command = function (command, args, index, cb) {
 };
 
 Multi.prototype.exec_atomic = function (callback) {
-    if (this.queue.length < 2) {
+    if (this.queue._length < 2) {
         return this.exec_batch(callback);
     }
     return this.exec(callback);
@@ -1107,7 +1107,7 @@ Multi.prototype.exec_atomic = function (callback) {
 
 Multi.prototype.exec_transaction = function (callback) {
     var self = this;
-    var len = this.queue.length;
+    var len = this.queue._length;
     var cb;
     this.errors = [];
     this.callback = callback;
@@ -1215,7 +1215,7 @@ Multi.prototype.callback = function (cb, command, i) {
 };
 
 Multi.prototype.exec = Multi.prototype.EXEC = Multi.prototype.exec_batch = function (callback) {
-    var len = this.queue.length;
+    var len = this.queue._length;
     var self = this;
     var index = 0;
     var args;
